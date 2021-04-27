@@ -1,0 +1,20 @@
+{
+	"name": "Fast Pipeline TSQL Code",
+	"properties": {
+		"folder": {
+			"name": "FastPipeline"
+		},
+		"content": {
+			"query": "\n\n\n\n/*GLOBALS*/\nDECLARE @TABLE_SCHEMA VARCHAR(500),@TABLE_NAME VARCHAR(500),@Partition_Count bigint,@SQL VARCHAR(MAX),@PARTITION_ID BIGINT;\nSET @TABLE_SCHEMA = 'dbo'\nSET @TABLE_NAME = 'LargeWideSODetailTable'\n\n/*Dynamic SQL*/\nSET @SQL = (SELECT\n'\nBEGIN TRY DROP TABLE #XX END TRY BEGIN CATCH PRINT 1 END CATCH\nDECLARE @PC BIGINT = (SELECT Partition_Count=CEILING((COUNT(1)/1600000.0)) FROM ['+@TABLE_SCHEMA+'].['+@TABLE_NAME+'])\n\nSELECT RIDX=ROW_NUMBER() OVER (ORDER BY PAR_NO)\nINTO #XX\nFROM (\nSELECT PAR_NO=0 UNION ALL\nSELECT PAR_NO=0 UNION ALL\nSELECT PAR_NO=0 UNION ALL\nSELECT PAR_NO=0 UNION ALL\nSELECT PAR_NO=0 UNION ALL\nSELECT PAR_NO=0 UNION ALL\nSELECT PAR_NO=0 UNION ALL\nSELECT PAR_NO=0 UNION ALL\nSELECT PAR_NO=0 UNION ALL\nSELECT PAR_NO=0\n) X\n\nSELECT PART_ID,Partition=@PC\nFROM (\nSELECT PART_ID = ROW_NUMBER() OVER (ORDER BY a.RIDX) -1\nFROM #XX A\nJOIN #XX B on 1=1\n) Y\nWHERE PART_ID < @PC')\n\nEXEC (@SQL)\n\n\n\n\n\n\n/*GLOBALS*/\nDECLARE @TABLE_SCHEMA VARCHAR(500),@TABLE_NAME VARCHAR(500),@Partition_Count bigint,@SQL VARCHAR(MAX),@PARTITION_ID BIGINT;\n\n\n\nSET @TABLE_SCHEMA = 'dbo'\nSET @TABLE_NAME = 'LargeWideSODetailTable'\nSET @Partition_Count=24\nSET @PARTITION_ID=0\n\n/*Dynamic SQL*/\nDECLARE @PartitionHash varchar(MAX)\nSET @PartitionHash = (SELECT REPLACE('ABS(CONVERT(BIGINT,HASHBYTES(¬MD5¬,CONCAT('+string_agg('['+COLUMN_NAME+']',',') WITHIN GROUP (Order by ORDINAL_POSITION)+'))) % '+CONVERT(VARCHAR(20),@Partition_Count)+')','¬','''')\nFROM INFORMATION_SCHEMA.COLUMNS\nwhere @TABLE_SCHEMA=TABLE_SCHEMA and TABLE_NAME=@TABLE_NAME AND ORDINAL_POSITION < 4 )\nSET @SQL = ('SELECT * FROM ['+@TABLE_SCHEMA+'].['+@TABLE_NAME+'] WHERE '+@PartitionHash + CONCAT(' = ',@PARTITION_ID))\n\n\nEXEC( @SQL)\n\n",
+			"metadata": {
+				"language": "sql"
+			},
+			"currentConnection": {
+				"poolName": "Built-in",
+				"databaseName": "master"
+			},
+			"resultLimit": 5000
+		},
+		"type": "SqlQuery"
+	}
+}

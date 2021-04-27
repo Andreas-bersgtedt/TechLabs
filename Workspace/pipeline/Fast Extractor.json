@@ -1,0 +1,211 @@
+{
+	"name": "Fast Extractor",
+	"properties": {
+		"activities": [
+			{
+				"name": "GetPartitions",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "Set Globals",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": {
+							"value": "@concat(variables('Globals'),pipeline().parameters.PartitionQuery)",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "AzureSqlTable1",
+						"type": "DatasetReference",
+						"parameters": {
+							"ServerName": {
+								"value": "@pipeline().parameters.ServerName",
+								"type": "Expression"
+							},
+							"UserName": {
+								"value": "@pipeline().parameters.UserName",
+								"type": "Expression"
+							},
+							"Password": {
+								"value": "@pipeline().parameters.Password",
+								"type": "Expression"
+							}
+						}
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "Set Globals",
+				"description": " ",
+				"type": "SetVariable",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "Globals",
+					"value": {
+						"value": "@concat('DECLARE @TABLE_SCHEMA VARCHAR(500),@TABLE_NAME VARCHAR(500),@Partition_Count bigint,@SQL VARCHAR(MAX),@PARTITION_ID BIGINT;\n SET @TABLE_SCHEMA = ','''',pipeline().parameters.Schema,'''',\n' SET @TABLE_NAME = ','''',pipeline().parameters.Table,'''',' ;  \n'\n)",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "ForEach1",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "GetPartitions",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('GetPartitions').output.value",
+						"type": "Expression"
+					},
+					"isSequential": false,
+					"batchCount": 24,
+					"activities": [
+						{
+							"name": "Copy data1",
+							"type": "Copy",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "7.00:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "AzureSqlSource",
+									"sqlReaderQuery": {
+										"value": "@concat('DECLARE @TABLE_SCHEMA VARCHAR(500),@TABLE_NAME VARCHAR(500),@Partition_Count bigint,@SQL VARCHAR(MAX),@PARTITION_ID BIGINT;\n SET @TABLE_SCHEMA = ','''',pipeline().parameters.Schema,'''',\n' SET @TABLE_NAME = ','''',pipeline().parameters.Table,'''',' ; ',\n' SET @Partition_Count= ',item().Partition,' ; ' ,\n' SET @PARTITION_ID=',item().PART_ID,' ; \n',\npipeline().parameters.FilteredSelect\n\n\n\n)",
+										"type": "Expression"
+									},
+									"queryTimeout": "02:00:00",
+									"partitionOption": "None"
+								},
+								"sink": {
+									"type": "ParquetSink",
+									"storeSettings": {
+										"type": "AzureBlobFSWriteSettings"
+									},
+									"formatSettings": {
+										"type": "ParquetWriteSettings"
+									}
+								},
+								"enableStaging": false,
+								"parallelCopies": 32,
+								"translator": {
+									"type": "TabularTranslator",
+									"typeConversion": true,
+									"typeConversionSettings": {
+										"allowDataTruncation": true,
+										"treatBooleanAsNumber": false
+									}
+								}
+							},
+							"inputs": [
+								{
+									"referenceName": "AzureSqlTable1",
+									"type": "DatasetReference",
+									"parameters": {
+										"ServerName": {
+											"value": "@pipeline().parameters.ServerName",
+											"type": "Expression"
+										},
+										"UserName": {
+											"value": "@pipeline().parameters.UserName",
+											"type": "Expression"
+										},
+										"Password": {
+											"value": "@pipeline().parameters.Password",
+											"type": "Expression"
+										}
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "rawparquet",
+									"type": "DatasetReference",
+									"parameters": {
+										"folder": {
+											"value": "@concat(pipeline().parameters.Schema,'/',pipeline().parameters.Table)",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"Schema": {
+				"type": "string"
+			},
+			"Table": {
+				"type": "string"
+			},
+			"PartitionQuery": {
+				"type": "string",
+				"defaultValue": "/*Dynamic SQL*/ SET @SQL = (SELECT ' BEGIN TRY DROP TABLE #XX END TRY BEGIN CATCH PRINT 1 END CATCH DECLARE @PC BIGINT = (SELECT Partition_Count=CEILING((COUNT(1)/1600000.0)) FROM ['+@TABLE_SCHEMA+'].['+@TABLE_NAME+'])  SELECT RIDX=ROW_NUMBER() OVER (ORDER BY PAR_NO) INTO #XX FROM ( SELECT PAR_NO=0 UNION ALL SELECT PAR_NO=0 UNION ALL SELECT PAR_NO=0 UNION ALL SELECT PAR_NO=0 UNION ALL SELECT PAR_NO=0 UNION ALL SELECT PAR_NO=0 UNION ALL SELECT PAR_NO=0 UNION ALL SELECT PAR_NO=0 UNION ALL SELECT PAR_NO=0 UNION ALL SELECT PAR_NO=0 ) X  SELECT PART_ID,Partition=@PC FROM ( SELECT PART_ID = ROW_NUMBER() OVER (ORDER BY a.RIDX) -1 FROM #XX A JOIN #XX B on 1=1 ) Y WHERE PART_ID < @PC') EXEC (@SQL)"
+			},
+			"FilteredSelect": {
+				"type": "string",
+				"defaultValue": "/*Dynamic SQL*/ DECLARE @PartitionHash varchar(MAX) SET @PartitionHash = (SELECT REPLACE('ABS(CONVERT(BIGINT,HASHBYTES(¬MD5¬,CONCAT('+string_agg('['+COLUMN_NAME+']',',') WITHIN GROUP (Order by ORDINAL_POSITION)+'))) % '+CONVERT(VARCHAR(20),@Partition_Count)+')','¬','''') FROM INFORMATION_SCHEMA.COLUMNS where @TABLE_SCHEMA=TABLE_SCHEMA and TABLE_NAME=@TABLE_NAME AND ORDINAL_POSITION < 4 ) SET @SQL = ('SELECT * FROM ['+@TABLE_SCHEMA+'].['+@TABLE_NAME+'] WHERE '+@PartitionHash + CONCAT(' = ',@PARTITION_ID))   EXEC( @SQL)"
+			},
+			"ServerName": {
+				"type": "string"
+			},
+			"UserName": {
+				"type": "string"
+			},
+			"Password": {
+				"type": "string"
+			}
+		},
+		"variables": {
+			"PARTITION_ID": {
+				"type": "String"
+			},
+			"Partition_Count": {
+				"type": "String"
+			},
+			"Globals": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "FastPipeline"
+		},
+		"annotations": [],
+		"lastPublishTime": "2021-04-26T19:34:54Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}
