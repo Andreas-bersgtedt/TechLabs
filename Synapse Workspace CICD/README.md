@@ -3,6 +3,10 @@
 
 
 
+YouYube Video available here: https://youtu.be/NuzfDp8OwRA
+
+
+
 
 Bradley Ball's TechCommunity post:
 **CI CD in Azure Synapse Analytics:** 
