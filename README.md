@@ -5,4 +5,4 @@
 
 **Working With Serverless db - External Tables:** https://github.com/Andreas-bersgtedt/TechLabs/tree/main/Working%20With%20Serverless%20db%20-%20External%20Tables
 
-**Managing Azure Synapse Analytics via CICD:** 
+**Managing Azure Synapse Analytics via CICD:** https://github.com/Andreas-bersgtedt/TechLabs/tree/main/Synapse%20Workspace%20CICD
