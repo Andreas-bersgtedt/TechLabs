@@ -1,0 +1,60 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "sparkPoolName": {
+            "value": "smalpool"
+        },
+        "workspaceName": {
+            "value": "cicd-demo-dev"
+        },
+        "location": {
+            "value": "westeurope"
+        },
+        "sparkPoolTags": {
+            "value": {}
+        },
+        "sparkAutoScaleEnabled": {
+            "value": false
+        },
+        "sparkMinNodeCount": {
+            "value": 0
+        },
+        "sparkMaxNodeCount": {
+            "value": 0
+        },
+        "sparkNodeCount": {
+            "value": 3
+        },
+        "sparkNodeSizeFamily": {
+            "value": "MemoryOptimized"
+        },
+        "sparkNodeSize": {
+            "value": "Medium"
+        },
+        "sparkAutoPauseEnabled": {
+            "value": true
+        },
+        "sparkAutoPauseDelayInMinutes": {
+            "value": 15
+        },
+        "sparkVersion": {
+            "value": "3.0"
+        },
+        "packagesRequirementsFileName": {
+            "value": ""
+        },
+        "packagesRequirementsContent": {
+            "value": ""
+        },
+        "sparkConfigPropertiesFileName": {
+            "value": ""
+        },
+        "sparkConfigPropertiesContent": {
+            "value": ""
+        },
+        "sessionLevelPackagesEnabled": {
+            "value": true
+        }
+    }
+}
