@@ -1,0 +1,379 @@
+{
+    "name": "DeltaLoadDemo",
+    "properties": {
+        "description": "Demo of how to use change capture in SQL to get changed rows since last marker\nhttps://docs.microsoft.com/en-us/sql/relational-databases/track-changes/manage-change-tracking-sql-server?view=sql-server-ver16#understanding-change-tracking-overhead",
+        "activities": [
+            {
+                "name": "Populate Set Variable",
+                "type": "SetVariable",
+                "dependsOn": [
+                    {
+                        "activity": "SetCurrentVersionIF",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "userProperties": [],
+                "typeProperties": {
+                    "variableName": "SetValue",
+                    "value": {
+                        "value": "@concat(variables('declarations'),' SET @tbl=','''',pipeline().parameters.table,''''\n,' SET @Schema = ','''',pipeline().parameters.schema,''''\n,' SET @CRID = ','''',variables('CurrentVersion'),''''\n,' '\n,variables('CK'))",
+                        "type": "Expression"
+                    }
+                }
+            },
+            {
+                "name": "CopyDelta",
+                "type": "Copy",
+                "dependsOn": [
+                    {
+                        "activity": "Populate Set Variable",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "timeout": "7.00:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "source": {
+                        "type": "AzureSqlSource",
+                        "sqlReaderQuery": {
+                            "value": "@variables('SetValue')",
+                            "type": "Expression"
+                        },
+                        "queryTimeout": "02:00:00",
+                        "partitionOption": "None"
+                    },
+                    "sink": {
+                        "type": "ParquetSink",
+                        "storeSettings": {
+                            "type": "AzureBlobFSWriteSettings"
+                        },
+                        "formatSettings": {
+                            "type": "ParquetWriteSettings",
+                            "maxRowsPerFile": 1000000
+                        }
+                    },
+                    "enableStaging": false,
+                    "translator": {
+                        "type": "TabularTranslator",
+                        "typeConversion": true,
+                        "typeConversionSettings": {
+                            "allowDataTruncation": true,
+                            "treatBooleanAsNumber": false
+                        }
+                    }
+                },
+                "inputs": [
+                    {
+                        "referenceName": "Customer",
+                        "type": "DatasetReference"
+                    }
+                ],
+                "outputs": [
+                    {
+                        "referenceName": "DynamicTargetPQT",
+                        "type": "DatasetReference",
+                        "parameters": {
+                            "fs": {
+                                "value": "@pipeline().parameters.fs",
+                                "type": "Expression"
+                            },
+                            "folder": {
+                                "value": "@pipeline().parameters.folder",
+                                "type": "Expression"
+                            },
+                            "file": {
+                                "value": "@pipeline().parameters.file",
+                                "type": "Expression"
+                            }
+                        }
+                    }
+                ]
+            },
+            {
+                "name": "InsertLogData",
+                "type": "Copy",
+                "dependsOn": [
+                    {
+                        "activity": "CopyDelta",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    },
+                    {
+                        "activity": "Populate Log Variable",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "timeout": "7.00:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "source": {
+                        "type": "AzureSqlSource",
+                        "sqlReaderQuery": {
+                            "value": "@variables('LogSourceVariable')",
+                            "type": "Expression"
+                        },
+                        "queryTimeout": "02:00:00",
+                        "partitionOption": "None"
+                    },
+                    "sink": {
+                        "type": "ParquetSink",
+                        "storeSettings": {
+                            "type": "AzureBlobFSWriteSettings"
+                        },
+                        "formatSettings": {
+                            "type": "ParquetWriteSettings"
+                        }
+                    },
+                    "enableStaging": false
+                },
+                "inputs": [
+                    {
+                        "referenceName": "ServerlessSQL",
+                        "type": "DatasetReference",
+                        "parameters": {
+                            "workspace": {
+                                "value": "@pipeline().DataFactory",
+                                "type": "Expression"
+                            },
+                            "serverlessdbname": "master"
+                        }
+                    }
+                ],
+                "outputs": [
+                    {
+                        "referenceName": "Deltalogpqt",
+                        "type": "DatasetReference"
+                    }
+                ]
+            },
+            {
+                "name": "Populate Log Variable",
+                "type": "SetVariable",
+                "dependsOn": [],
+                "userProperties": [],
+                "typeProperties": {
+                    "variableName": "LogSourceVariable",
+                    "value": {
+                        "value": "@concat(variables('logdeclarations')\n,' SET @FS = ','''',pipeline().parameters.fs,''''\n,' SET @Folder = ','''',pipeline().parameters.folder,''''\n,' SET @sourcename = ','''',pipeline().parameters.datasourcename,''''\n,' SET @entity = ','''',pipeline().parameters.table,''''\n,' SET @Schema = ','''',pipeline().parameters.schema,''''\n,' '\n,variables('LogSQL'))",
+                        "type": "Expression"
+                    }
+                }
+            },
+            {
+                "name": "GetCurrentVersion",
+                "type": "SetVariable",
+                "dependsOn": [],
+                "userProperties": [],
+                "typeProperties": {
+                    "variableName": "ManifestVariable",
+                    "value": {
+                        "value": "@concat(variables('logdeclarations')\n,' SET @FS = ','''',pipeline().parameters.fs,''''\n,' SET @Folder = ','''',pipeline().parameters.folder,''''\n,' SET @sourcename = ','''',pipeline().parameters.datasourcename,''''\n,' SET @entity = ','''',pipeline().parameters.table,''''\n,' SET @Schema = ','''',pipeline().parameters.schema,''''\n,' '\n,variables('GetVersionSQL'))",
+                        "type": "Expression"
+                    }
+                }
+            },
+            {
+                "name": "CheckManifest",
+                "type": "Validation",
+                "dependsOn": [],
+                "userProperties": [],
+                "typeProperties": {
+                    "dataset": {
+                        "referenceName": "Deltalogpqt",
+                        "type": "DatasetReference"
+                    },
+                    "timeout": "0.00:00:01",
+                    "sleep": 1,
+                    "childItems": true
+                }
+            },
+            {
+                "name": "SetCurrentVersionIF",
+                "type": "IfCondition",
+                "dependsOn": [
+                    {
+                        "activity": "GetCurrentVersion",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    },
+                    {
+                        "activity": "CheckManifest",
+                        "dependencyConditions": [
+                            "Completed"
+                        ]
+                    }
+                ],
+                "userProperties": [],
+                "typeProperties": {
+                    "expression": {
+                        "value": "@empty(activity('CheckManifest').output.childitems)",
+                        "type": "Expression"
+                    },
+                    "ifFalseActivities": [
+                        {
+                            "name": "LKUP_CurrentVersion",
+                            "type": "Lookup",
+                            "dependsOn": [],
+                            "policy": {
+                                "timeout": "7.00:00:00",
+                                "retry": 0,
+                                "retryIntervalInSeconds": 30,
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "source": {
+                                    "type": "AzureSqlSource",
+                                    "sqlReaderQuery": {
+                                        "value": "@variables('ManifestVariable')",
+                                        "type": "Expression"
+                                    },
+                                    "queryTimeout": "02:00:00",
+                                    "partitionOption": "None"
+                                },
+                                "dataset": {
+                                    "referenceName": "ServerlessSQL",
+                                    "type": "DatasetReference",
+                                    "parameters": {
+                                        "workspace": {
+                                            "value": "@pipeline().DataFactory",
+                                            "type": "Expression"
+                                        },
+                                        "serverlessdbname": "master"
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "name": "SetCurrentVersion",
+                            "type": "SetVariable",
+                            "dependsOn": [
+                                {
+                                    "activity": "LKUP_CurrentVersion",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                }
+                            ],
+                            "userProperties": [],
+                            "typeProperties": {
+                                "variableName": "CurrentVersion",
+                                "value": {
+                                    "value": "@string(activity('LKUP_CurrentVersion').output.firstrow.CurrentVersion)",
+                                    "type": "Expression"
+                                }
+                            }
+                        }
+                    ],
+                    "ifTrueActivities": [
+                        {
+                            "name": "SetCurrentVersion_If_Blank",
+                            "type": "SetVariable",
+                            "dependsOn": [],
+                            "userProperties": [],
+                            "typeProperties": {
+                                "variableName": "CurrentVersion",
+                                "value": {
+                                    "value": "0",
+                                    "type": "Expression"
+                                }
+                            }
+                        }
+                    ]
+                }
+            }
+        ],
+        "parameters": {
+            "schema": {
+                "type": "string",
+                "defaultValue": "dbo"
+            },
+            "table": {
+                "type": "string",
+                "defaultValue": "FactNameCountStapshot"
+            },
+            "lastchangeversion": {
+                "type": "string",
+                "defaultValue": "0"
+            },
+            "fs": {
+                "type": "string",
+                "defaultValue": "primary-fs"
+            },
+            "folder": {
+                "type": "string",
+                "defaultValue": "DeltaLoadDemo"
+            },
+            "file": {
+                "type": "string"
+            },
+            "datasourcename": {
+                "type": "string",
+                "defaultValue": "demosource"
+            }
+        },
+        "variables": {
+            "declarations": {
+                "type": "String",
+                "defaultValue": "DECLARE @CK varchar(250) , @tbl varchar(250), @Schema varchar(250), @SQL VARCHAR(MAX), @CRID VARCHAR(250) "
+            },
+            "SetValue": {
+                "type": "String"
+            },
+            "CK": {
+                "type": "String",
+                "defaultValue": "/*DYNAMICALLY BUILD OUT PK Constructs*/ DECLARE @PK as TABLE (TDX VARCHAR(250)) INSERT INTO @PK SELECT   c.COLUMN_NAME  FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc      JOIN INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE ccu           ON tc.CONSTRAINT_NAME = ccu.Constraint_name  INNER JOIN INFORMATION_SCHEMA.COLUMNS C  ON tc.TABLE_SCHEMA = c.TABLE_SCHEMA and tc.TABLE_NAME = c.TABLE_NAME AND ccu.COLUMN_NAME = c.COLUMN_NAME WHERE       tc.TABLE_NAME = @tbl AND tc.TABLE_SCHEMA = @Schema and tc.CONSTRAINT_TYPE = 'Primary Key'  /*DYNAMICALLY BUILD OUT JOINS*/ SET @CK = (SELECT STRING_AGG(' c.['+TDX+']=ct.['+TDX+'] ',' and ') from @PK)    /*DYNAMICALLY BUILD OUT Change query*/ SET @SQL=(SELECT 'SELECT '+STRING_AGG(CASE WHEN C.COLUMN_NAME=CK.TDX THEN '['+CK.TDX+']=ISNULL(C.['+CK.TDX+'],ct.['+CK.TDX+'])' ELSE 'c.['+C.COLUMN_NAME+']' END, ', ') WITHIN GROUP (ORDER BY C.ORDINAL_POSITION)  +',ct.SYS_CHANGE_OPERATION,ct.SYS_CHANGE_VERSION,SYS_LOAD_UTC_TIMESTAMP=convert(varchar(50),GETUTCDATE(),121) FROM CHANGETABLE(CHANGES '+@Schema+'.'+@tbl+', 0) ct LEFT OUTER JOIN ['+@Schema+'].['+@tbl+'] c ON '+@CK+'  WHERE ct.SYS_CHANGE_VERSION > '+ISNULL(@CRID,0)+';'   FROM INFORMATION_SCHEMA.COLUMNS C left outer join @PK ck on C.COLUMN_NAME=CK.TDX WHERE c.TABLE_NAME = @tbl AND c.TABLE_SCHEMA = @Schema GROUP BY C.TABLE_NAME ) EXEC(@SQL)"
+            },
+            "at": {
+                "type": "String",
+                "defaultValue": "@"
+            },
+            "logdeclarations": {
+                "type": "String",
+                "defaultValue": "DECLARE @FS NVARCHAR(250) ,@Folder NVARCHAR(250) ,@SQL VARCHAR(MAX) ,@entity varchar(250) ,@Schema varchar(250) ,@sourcename varchar(250) ,@A VARCHAR(10)='¬' ,@B VARCHAR(10)=''''"
+            },
+            "LogSQL": {
+                "type": "String",
+                "defaultValue": "SET @SQL = REPLACE('SELECT SourceName=¬'+@sourcename+'¬,SchemaName=¬'+@Schema+'¬,EntityName=¬'+@entity+'¬,Version=MAX(SYS_CHANGE_VERSION),UTCTIMESTAMP=GETUTCDATE() FROM OPENROWSET(BULK ¬https://YourADLSStorageAccount.dfs.core.windows.net/'+@FS+'/'+@Folder+'/*¬,FORMAT = ¬PARQUET¬) AS [result]',@A,@B) EXEC(@SQL)"
+            },
+            "LogSourceVariable": {
+                "type": "String"
+            },
+            "GetVersionSQL": {
+                "type": "String",
+                "defaultValue": "SELECT CurrentVersion=ISNULL(MAX([Version]),0) FROM OPENROWSET(BULK 'https://YourADLSStorageAccount.dfs.core.windows.net/YourContainer/manifests/deltaload/*.parquet',FORMAT = 'PARQUET') AS [result] Where SourceName=@sourcename and SchemaName=@Schema AND EntityName=@entity"
+            },
+            "ManifestVariable": {
+                "type": "String"
+            },
+            "CurrentVersion": {
+                "type": "String"
+            }
+        },
+        "folder": {
+            "name": "ChangeLoadDemo"
+        },
+        "annotations": []
+    }
+}

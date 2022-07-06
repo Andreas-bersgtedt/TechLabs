@@ -1,0 +1,20 @@
+{
+    "name": "Deltalogpqt",
+    "properties": {
+        "linkedServiceName": {
+            "referenceName": "cicd-demo-dev-WorkspaceDefaultStorage",
+            "type": "LinkedServiceReference"
+        },
+        "annotations": [],
+        "type": "Parquet",
+        "typeProperties": {
+            "location": {
+                "type": "AzureBlobFSLocation",
+                "folderPath": "manifests/deltaload",
+                "fileSystem": "primary-fs"
+            },
+            "compressionCodec": "snappy"
+        },
+        "schema": []
+    }
+}

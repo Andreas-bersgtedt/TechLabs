@@ -1,0 +1,24 @@
+{
+    "name": "TestData",
+    "properties": {
+        "parameters": {
+            "fqdn": {
+                "type": "string",
+                "defaultValue": "testdata001.database.windows.net"
+            },
+            "dbname": {
+                "type": "string",
+                "defaultValue": "SalesData"
+            }
+        },
+        "annotations": [],
+        "type": "AzureSqlDatabase",
+        "typeProperties": {
+            "connectionString": "Integrated Security=False;Encrypt=True;Connection Timeout=30;Data Source=@{linkedService().fqdn};Initial Catalog=@{linkedService().dbname}"
+        },
+        "connectVia": {
+            "referenceName": "AutoResolveIntegrationRuntime",
+            "type": "IntegrationRuntimeReference"
+        }
+    }
+}

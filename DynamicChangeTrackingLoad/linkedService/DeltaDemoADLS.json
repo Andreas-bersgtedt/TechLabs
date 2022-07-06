@@ -1,0 +1,20 @@
+{
+    "name": "DeltaDemoADLS",
+    "properties": {
+        "parameters": {
+            "ADLSAccount": {
+                "type": "string",
+                "defaultValue": "https://cicddemofsdev.dfs.core.windows.net"
+            }
+        },
+        "annotations": [],
+        "type": "AzureBlobFS",
+        "typeProperties": {
+            "url": "@{linkedService().ADLSAccount}"
+        },
+        "connectVia": {
+            "referenceName": "AutoResolveIntegrationRuntime",
+            "type": "IntegrationRuntimeReference"
+        }
+    }
+}

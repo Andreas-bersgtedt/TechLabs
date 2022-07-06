@@ -1,0 +1,31 @@
+{
+    "name": "ServerlessSQL",
+    "properties": {
+        "linkedServiceName": {
+            "referenceName": "ServerlessSQL",
+            "type": "LinkedServiceReference",
+            "parameters": {
+                "Workspace": {
+                    "value": "@dataset().workspace",
+                    "type": "Expression"
+                },
+                "dbname": {
+                    "value": "@dataset().serverlessdbname",
+                    "type": "Expression"
+                }
+            }
+        },
+        "parameters": {
+            "workspace": {
+                "type": "string"
+            },
+            "serverlessdbname": {
+                "type": "string",
+                "defaultValue": "master"
+            }
+        },
+        "annotations": [],
+        "type": "AzureSqlTable",
+        "schema": []
+    }
+}

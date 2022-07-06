@@ -1,0 +1,93 @@
+{
+    "name": "ChangeDemoControl",
+    "properties": {
+        "activities": [
+            {
+                "name": "LKUP_GetChangeTableConfig",
+                "type": "Lookup",
+                "dependsOn": [],
+                "policy": {
+                    "timeout": "7.00:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "source": {
+                        "type": "AzureSqlSource",
+                        "sqlReaderQuery": "SELECT TableName\n,SchemaName\n,DatabaseName\n,fs='primary-fs'\n,folder='DeltaLoadDemo/'+DatabaseName+'/'+SchemaName+'/'+TableName\n+'/'+CONVERT(VARCHAR(50),GETUTCDATE(),111)\n,DataSourceName=DatabaseName\n\nFROM (SELECT\nTableName=t.name\n,SchemaName=ss.name\n,DatabaseName=DB_NAME(db_id())\n\nFROM sys.change_tracking_tables ct\nINNER JOIN sys.tables t on ct.object_id=t.object_id\ninner join sys.schemas ss on t.schema_id=ss.schema_id\n) AS X\n",
+                        "queryTimeout": "02:00:00",
+                        "partitionOption": "None"
+                    },
+                    "dataset": {
+                        "referenceName": "Customer",
+                        "type": "DatasetReference"
+                    },
+                    "firstRowOnly": false
+                }
+            },
+            {
+                "name": "FEL_processChangeTrackedTables",
+                "type": "ForEach",
+                "dependsOn": [
+                    {
+                        "activity": "LKUP_GetChangeTableConfig",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "userProperties": [],
+                "typeProperties": {
+                    "items": {
+                        "value": "@activity('LKUP_GetChangeTableConfig').output.value",
+                        "type": "Expression"
+                    },
+                    "activities": [
+                        {
+                            "name": "ExecP_DeltaLoadDemo",
+                            "type": "ExecutePipeline",
+                            "dependsOn": [],
+                            "userProperties": [],
+                            "typeProperties": {
+                                "pipeline": {
+                                    "referenceName": "DeltaLoadDemo",
+                                    "type": "PipelineReference"
+                                },
+                                "waitOnCompletion": true,
+                                "parameters": {
+                                    "schema": {
+                                        "value": "@item().SchemaName",
+                                        "type": "Expression"
+                                    },
+                                    "table": {
+                                        "value": "@item().TableName",
+                                        "type": "Expression"
+                                    },
+                                    "fs": {
+                                        "value": "@item().fs",
+                                        "type": "Expression"
+                                    },
+                                    "folder": {
+                                        "value": "@item().folder",
+                                        "type": "Expression"
+                                    },
+                                    "datasourcename": {
+                                        "value": "@item().DataSourceName",
+                                        "type": "Expression"
+                                    }
+                                }
+                            }
+                        }
+                    ]
+                }
+            }
+        ],
+        "folder": {
+            "name": "ChangeLoadDemo"
+        },
+        "annotations": []
+    }
+}
